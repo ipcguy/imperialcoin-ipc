@@ -51,6 +51,8 @@ static const int fHaveUPnP = true;
 static const int fHaveUPnP = false;
 #endif
 
+static const unsigned int DGW3_FORK_TIME = 1405382400;  // 7 15 2014 @ 00:00:00 UTC
+
 
 extern CScript COINBASE_FLAGS;
 

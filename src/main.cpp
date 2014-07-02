@@ -933,14 +933,14 @@ unsigned int static DarkGravityWave3(const CBlockIndex* pindexLast, const CBlock
 unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlock *pblock)
 {
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
-	
-	// Switch to DGW3
-	if (pindexLast->nTime > DGW3_FORK_TIME);
-		return DarkGravityWave3(pindexLast, pblock);
 
     // Genesis block
     if (pindexLast == NULL)
         return nProofOfWorkLimit;
+	
+	// Switch to DGW3
+	if (pindexLast->nTime > DGW3_FORK_TIME)
+		return DarkGravityWave3(pindexLast, pblock);
 
     // Only change once per interval
     if ((pindexLast->nHeight+1) % nInterval != 0)

@@ -32,6 +32,9 @@ typedef int pid_t; /* define for windows compatiblity */
 
 typedef long long  int64;
 typedef unsigned long long  uint64;
+typedef unsigned int    uint;
+typedef unsigned short  ushort;
+typedef unsigned char   uchar;
 
 static const int64 COIN = 100000000;
 static const int64 CENT = 1000000;
@@ -116,9 +119,11 @@ extern bool fServer;
 extern bool fCommandLine;
 extern std::string strMiscWarning;
 extern bool fTestNet;
+extern bool fTestNetInit;
 extern bool fNoListen;
 extern bool fLogTimestamps;
 extern bool fReopenDebugLog;
+extern bool fNeoScrypt;
 
 void RandAddSeed();
 void RandAddSeedPerfmon();

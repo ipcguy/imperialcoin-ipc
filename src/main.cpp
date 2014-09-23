@@ -8,6 +8,7 @@
 #include "db.h"
 #include "net.h"
 #include "init.h"
+#include "util.h"
 #include "ui_interface.h"
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
@@ -31,6 +32,8 @@ unsigned int nTransactionsUpdated = 0;
 map<uint256, CBlockIndex*> mapBlockIndex;
 uint256 hashGenesisBlock("0x2e8e66f01ce0e0c76312af31ab626011ad38c619e1830e3346abaf2b26d3e956");
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 20); // starting difficulty is 1 / 2^12
+/* The difficulty after switching to NeoScrypt (0.015625) */
+static CBigNum bnNeoScryptSwitch(~uint256(0) >> 26);
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
 CBigNum bnBestChainWork = 0;
@@ -1081,11 +1084,6 @@ void CBlock::UpdateTime(const CBlockIndex* pindexPrev)
 
 
 
-
-
-
-
-
 bool CTransaction::DisconnectInputs(CTxDB& txdb)
 {
     // Relinquish previous transactions' spent pointers
@@ -2103,18 +2101,16 @@ bool LoadBlockIndex(bool fAllowNew)
             printf("Searching for genesis block...\n");
             // This will figure out a valid hash and Nonce if you're
             // creating a different genesis block:
+            uint profile = fNeoScrypt ? 0x0 : 0x3;
             uint256 hashTarget = CBigNum().SetCompact(block.nBits).getuint256();
-            uint256 thash;
-            char scratchpad[SCRYPT_SCRATCHPAD_SIZE];
+            uint256 hash;
 
-            loop
-            {
-                scrypt_1024_1_1_256_sp(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
-                if (thash <= hashTarget)
-                    break;
+            while(true) {
+                neoscrypt((uchar *) &block.nVersion, (uchar *) &hash, profile);
+                if(hash <= hashTarget) break;
                 if ((block.nNonce & 0xFFF) == 0)
                 {
-                    printf("nonce %08X: hash = %s (target = %s)\n", block.nNonce, thash.ToString().c_str(), hashTarget.ToString().c_str());
+                    printf("nonce %08X: hash = %s (target = %s)\n", block.nNonce, hash.ToString().c_str(), hashTarget.ToString().c_str());
                 }
                 ++block.nNonce;
                 if (block.nNonce == 0)
@@ -3371,32 +3367,6 @@ void SHA256Transform(void* pstate, void* pinput, const void* pinit)
 // between calls, but periodically or if nNonce is 0xffff0000 or above,
 // the block is rebuilt and nNonce starts over at zero.
 //
-unsigned int static ScanHash_CryptoPP(char* pmidstate, char* pdata, char* phash1, char* phash, unsigned int& nHashesDone)
-{
-    unsigned int& nNonce = *(unsigned int*)(pdata + 12);
-    for (;;)
-    {
-        // Crypto++ SHA-256
-        // Hash pdata using pmidstate as the starting state into
-        // preformatted buffer phash1, then hash phash1 into phash
-        nNonce++;
-        SHA256Transform(phash1, pdata, pmidstate);
-        SHA256Transform(phash, phash1, pSHA256InitState);
-
-        // Return the nonce if the hash has at least some zero bits,
-        // caller will check if it has enough to reach the target
-        if (((unsigned short*)phash)[14] == 0)
-            return nNonce;
-
-        // If nothing found after trying for a while, return -1
-        if ((nNonce & 0xffff) == 0)
-        {
-            nHashesDone = 0xffff+1;
-            return (unsigned int) -1;
-        }
-    }
-}
-
 // Some explaining would be appreciated
 class COrphan
 {
@@ -3612,54 +3582,44 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 }
 
 
-void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash1)
-{
-    //
-    // Prebuild hash buffers
-    //
-    struct
-    {
-        struct unnamed2
-        {
-            int nVersion;
-            uint256 hashPrevBlock;
-            uint256 hashMerkleRoot;
-            unsigned int nTime;
-            unsigned int nBits;
-            unsigned int nNonce;
-        }
-        block;
-        unsigned char pchPadding0[64];
-        uint256 hash1;
-        unsigned char pchPadding1[64];
+/* Prepares a block header for transmission using RPC getwork */
+void FormatDataBuffer(CBlock *pblock, uint *pdata) {
+    uint i;
+
+    struct {
+        int nVersion;
+        uint256 hashPrevBlock;
+        uint256 hashMerkleRoot;
+        uint nTime;
+        uint nBits;
+        uint nNonce;
+    } data;
+
+    data.nVersion       = pblock->nVersion;
+    data.hashPrevBlock  = pblock->hashPrevBlock;
+    data.hashMerkleRoot = pblock->hashMerkleRoot;
+    data.nTime          = pblock->nTime;
+    data.nBits          = pblock->nBits;
+    data.nNonce         = pblock->nNonce;
+
+   if(fNeoScrypt) {
+        /* Copy the LE data */
+        for(i = 0; i < 20; i++)
+          pdata[i] = ((uint *) &data)[i];
+    } else {
+        /* Block header size in bits */
+        pdata[31] = 640;
+        /* Convert LE to BE and copy */
+        for(i = 0; i < 20; i++)
+          pdata[i] = ByteReverse(((uint *) &data)[i]);
+        /* Erase the remaining part */
+        for(i = 20; i < 31; i++)
+          pdata[i] = 0;
     }
-    tmp;
-    memset(&tmp, 0, sizeof(tmp));
-
-    tmp.block.nVersion       = pblock->nVersion;
-    tmp.block.hashPrevBlock  = pblock->hashPrevBlock;
-    tmp.block.hashMerkleRoot = pblock->hashMerkleRoot;
-    tmp.block.nTime          = pblock->nTime;
-    tmp.block.nBits          = pblock->nBits;
-    tmp.block.nNonce         = pblock->nNonce;
-
-    FormatHashBlocks(&tmp.block, sizeof(tmp.block));
-    FormatHashBlocks(&tmp.hash1, sizeof(tmp.hash1));
-
-    // Byte swap all the input buffer
-    for (unsigned int i = 0; i < sizeof(tmp)/4; i++)
-        ((unsigned int*)&tmp)[i] = ByteReverse(((unsigned int*)&tmp)[i]);
-
-    // Precalc the first half of the first hash, which stays constant
-    SHA256Transform(pmidstate, &tmp.block, pSHA256InitState);
-
-    memcpy(pdata, &tmp.block, 128);
-    memcpy(phash1, &tmp.hash1, 64);
 }
 
 
-bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
-{
+bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey) {
     uint256 hash = pblock->GetPoWHash();
     uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
 
@@ -3742,37 +3702,19 @@ void static BitcoinMiner(CWallet *pwallet)
 
 
         //
-        // Prebuild hash buffers
-        //
-        char pmidstatebuf[32+16]; char* pmidstate = alignup<16>(pmidstatebuf);
-        char pdatabuf[128+16];    char* pdata     = alignup<16>(pdatabuf);
-        char phash1buf[64+16];    char* phash1    = alignup<16>(phash1buf);
-
-        FormatHashBuffers(pblock.get(), pmidstate, pdata, phash1);
-
-        unsigned int& nBlockTime = *(unsigned int*)(pdata + 64 + 4);
-        unsigned int& nBlockBits = *(unsigned int*)(pdata + 64 + 8);
-        //unsigned int& nBlockNonce = *(unsigned int*)(pdata + 64 + 12);
-
-
-        //
         // Search
         //
         int64 nStart = GetTime();
         uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
-        loop
-        {
-            unsigned int nHashesDone = 0;
-            //unsigned int nNonceFound;
 
-            uint256 thash;
-            char scratchpad[SCRYPT_SCRATCHPAD_SIZE];
-            loop
-            {
-                scrypt_1024_1_1_256_sp(BEGIN(pblock->nVersion), BEGIN(thash), scratchpad);
+        while(true) {
+           unsigned int nHashesDone = 0;
+            uint profile = fNeoScrypt ? 0x0 : 0x3;
+            uint256 hash;
 
-                if (thash <= hashTarget)
-                {
+            while(true) {
+                neoscrypt((uchar *) &pblock->nVersion, (uchar *) &hash, profile);
+                if(hash <= hashTarget) {
                     // Found a solution
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
                     CheckWork(pblock.get(), *pwalletMain, reservekey);
@@ -3832,15 +3774,11 @@ void static BitcoinMiner(CWallet *pwallet)
             if (pindexPrev != pindexBest)
                 break;
 
-            // Update nTime every few seconds
             pblock->UpdateTime(pindexPrev);
-            nBlockTime = ByteReverse(pblock->nTime);
-            if (fTestNet)
-            {
-                // Changing pblock->nTime can change work required on testnet:
-                nBlockBits = ByteReverse(pblock->nBits);
+
+            if(fTestNet)
+                /* UpdateTime() can change work required on testnet */
                 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
-            }
         }
     }
 }

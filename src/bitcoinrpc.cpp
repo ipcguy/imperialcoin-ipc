@@ -1917,72 +1917,52 @@ Value getworkex(const Array& params, bool fHelp)
         // Save
         mapNewBlock[pblock->hashMerkleRoot] = make_pair(pblock, pblock->vtx[0].vin[0].scriptSig);
 
-        // Prebuild hash buffers
-        char pmidstate[32];
-        char pdata[128];
-        char phash1[64];
-        FormatHashBuffers(pblock, pmidstate, pdata, phash1);
+        /* Prepare the block header for transmission */
+        uint pdata[32];
+        FormatDataBuffer(pblock, pdata);
 
         uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
 
-        CTransaction coinbaseTx = pblock->vtx[0];
-        std::vector<uint256> merkle = pblock->GetMerkleBranch(0);
-
         Object result;
-        result.push_back(Pair("data",     HexStr(BEGIN(pdata), END(pdata))));
+        result.push_back(Pair("data",     HexStr(BEGIN(pdata), fNeoScrypt ? (char *) &pdata[21] : END(pdata))));
         result.push_back(Pair("target",   HexStr(BEGIN(hashTarget), END(hashTarget))));
+        /* Optional */
+        if(fNeoScrypt)
+          result.push_back(Pair("algorithm", "neoscrypt"));
+        else
+          result.push_back(Pair("algorithm", "scrypt:1024,1,1"));
+        return(result);
 
-        CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-        ssTx << coinbaseTx;
-        result.push_back(Pair("coinbase", HexStr(ssTx.begin(), ssTx.end())));
+    } else {
 
-        Array merkle_arr;
-        printf("DEBUG: merkle size %i\n", merkle.size());
-
-        BOOST_FOREACH(uint256 merkleh, merkle) {
-            printf("%s\n", merkleh.ToString().c_str());
-            merkle_arr.push_back(HexStr(BEGIN(merkleh), END(merkleh)));
-        }
-
-        result.push_back(Pair("merkle", merkle_arr));
-
-
-        return result;
-    }
-    else
-    {
-        // Parse parameters
         vector<unsigned char> vchData = ParseHex(params[0].get_str());
-        vector<unsigned char> coinbase;
 
-        if(params.size() == 2)
-            coinbase = ParseHex(params[1].get_str());
-
-        if (vchData.size() != 128)
-            throw JSONRPCError(-8, "Invalid parameter");
-
+        /* Must be no less actual data than sent previously */
+        if(vchData.size() < 80)
+          throw(JSONRPCError(-8, "Invalid parameter"));
         CBlock* pdata = (CBlock*)&vchData[0];
 
-        // Byte reverse
-        for (int i = 0; i < 128/4; i++)
-            ((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+        if(!fNeoScrypt) {
+            uint i;
+            /* nVersion and hashPrevBlock aren't needed */
+            for(i = 9; i < 20; i++)
+              /* Convert BE to LE */
+              ((uint *) pdata)[i] = ByteReverse(((uint *) pdata)[i]);
+        }
 
-        // Get saved block
-        if (!mapNewBlock.count(pdata->hashMerkleRoot))
-            return false;
+        /* Pick up the block contents saved previously */
+        if(!mapNewBlock.count(pdata->hashMerkleRoot))
+          return(false);
         CBlock* pblock = mapNewBlock[pdata->hashMerkleRoot].first;
 
         pblock->nTime = pdata->nTime;
         pblock->nNonce = pdata->nNonce;
-
-        if(coinbase.size() == 0)
-            pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
-        else
-            CDataStream(coinbase, SER_NETWORK, PROTOCOL_VERSION) >> pblock->vtx[0]; // FIXME - HACK!
+        pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
 
         pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
-        return CheckWork(pblock, *pwalletMain, reservekey);
+        /* Verify the resulting hash against target */
+        return(CheckWork(pblock, *pwalletMain, reservekey));
     }
 }
 
@@ -2049,33 +2029,33 @@ Value getwork(const Array& params, bool fHelp)
         // Save
         mapNewBlock[pblock->hashMerkleRoot] = make_pair(pblock, pblock->vtx[0].vin[0].scriptSig);
 
-        // Prebuild hash buffers
-        char pmidstate[32];
-        char pdata[128];
-        char phash1[64];
-        FormatHashBuffers(pblock, pmidstate, pdata, phash1);
+        /* Prepare the block header for transmission */
+        uint pdata[32];
+        FormatDataBuffer(pblock, pdata);
 
         uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
 
         Object result;
-        result.push_back(Pair("midstate", HexStr(BEGIN(pmidstate), END(pmidstate)))); // deprecated
-        result.push_back(Pair("data",     HexStr(BEGIN(pdata), END(pdata))));
-        result.push_back(Pair("hash1",    HexStr(BEGIN(phash1), END(phash1)))); // deprecated
+        result.push_back(Pair("data",     HexStr(BEGIN(pdata), fNeoScrypt ? (char *) &pdata[21] : END(pdata))));
         result.push_back(Pair("target",   HexStr(BEGIN(hashTarget), END(hashTarget))));
-        result.push_back(Pair("algorithm", "scrypt:1024,1,1"));  // specify that we should use the scrypt algorithm
-        return result;
-    }
-    else
-    {
-        // Parse parameters
+
+    } else {
+
         vector<unsigned char> vchData = ParseHex(params[0].get_str());
-        if (vchData.size() != 128)
-            throw JSONRPCError(-8, "Invalid parameter");
+        vector<unsigned char> coinbase;
+
+        if(params.size() == 2)
+          coinbase = ParseHex(params[1].get_str());
+
+        if(vchData.size() < 80)
+          throw(JSONRPCError(-8, "Invalid parameter"));
         CBlock* pdata = (CBlock*)&vchData[0];
 
-        // Byte reverse
-        for (int i = 0; i < 128/4; i++)
-            ((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+        if(!fNeoScrypt) {
+            uint i;
+           for(i = 9; i < 20; i++)
+             ((uint *) pdata)[i] = ByteReverse(((uint *) pdata)[i]);
+        }
 
         // Get saved block
         if (!mapNewBlock.count(pdata->hashMerkleRoot))

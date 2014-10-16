@@ -1,5 +1,5 @@
-Litecoin-Qt: Qt4 GUI for Litecoin
-================================
+Imperialcoin-Qt: Qt4 GUI for Imperialcoin
+=========================================
 
 Build instructions
 ===================
@@ -23,9 +23,9 @@ then execute the following:
     qmake
     make
 
-Alternatively, install `Qt Creator`_ and open the `litecoin-qt.pro` file.
+Alternatively, install `Qt Creator`_ and open the `imperialcoin-qt.pro` file.
 
-An executable named `litecoin-qt` will be built.
+An executable named `imperialcoin-qt` will be built.
 
 .. _`Qt Creator`: http://qt.nokia.com/downloads/
 
@@ -40,7 +40,7 @@ Windows build instructions:
 
 - Copy the contents of the folder "deps" to "X:\\QtSDK\\mingw", replace X:\\ with the location where you installed the Qt SDK. Make sure that the contents of "deps\\include" end up in the current "include" directory.
 
-- Open the bitcoin-qt.pro file in Qt Creator and build as normal (ctrl-B)
+- Open the imperialcoin-qt.pro file in Qt Creator and build as normal (ctrl-B)
 
 .. _`Qt Windows SDK`: http://qt.nokia.com/downloads/sdk-windows-cpp
 .. _`dependencies archive`: https://download.visucore.com/bitcoin/qtgui_deps_1.zip
@@ -62,7 +62,7 @@ Mac OS X
 	sudo port selfupdate
 	sudo port install boost db48 miniupnpc
 
-- Open the bitcoin-qt.pro file in Qt Creator and build as normal (cmd-B)
+- Open the imperialcoin-qt.pro file in Qt Creator and build as normal (cmd-B)
 
 .. _`Qt Mac OS X SDK`: http://qt.nokia.com/downloads/sdk-mac-os-cpp
 .. _`MacPorts`: http://www.macports.org/install.php
@@ -108,8 +108,8 @@ FreeDesktop notification interface through DBUS using the following qmake option
 Generation of QR codes
 -----------------------
 
-libqrencode may be used to generate QRCode images for payment requests. 
-It can be downloaded from http://fukuchi.org/works/qrencode/index.html.en, or installed via your package manager. Pass the USE_QRCODE 
+libqrencode may be used to generate QRCode images for payment requests.
+It can be downloaded from http://fukuchi.org/works/qrencode/index.html.en, or installed via your package manager. Pass the USE_QRCODE
 flag to qmake to control this:
 
 +--------------+--------------------------------------------------------------------------+

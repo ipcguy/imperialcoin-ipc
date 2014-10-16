@@ -2,30 +2,30 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file license.txt or http://www.opensource.org/licenses/mit-license.php.
 
-USE_UPNP:=0
+USE_UPNP:=1
 
 INCLUDEPATHS= \
- -I"C:\deps\boost" \
- -I"C:\deps\db\build_unix" \
- -I"C:\deps\ssl\include"
+ -I"C:\deps\boost_1_49_0" \
+ -I"C:\deps\db-4.8.30.NC\build_unix" \
+ -I"C:\deps\openssl-1.0.1g\include"
 
 LIBPATHS= \
- -L"C:\deps\boost\stage\lib" \
- -L"C:\deps\db\build_unix" \
- -L"C:\deps\ssl"
+ -L"C:\deps\boost_1_49_0\stage\lib" \
+ -L"C:\deps\db-4.8.30.NC\build_unix" \
+ -L"C:\deps\openssl-1.0.1g"
 
 LIBS= \
- -l boost_system-mgw46-mt-s-1_49 \
- -l boost_filesystem-mgw46-mt-s-1_49 \
- -l boost_program_options-mgw46-mt-s-1_49 \
- -l boost_thread-mgw46-mt-s-1_49 \
+ -l boost_system-mgw48-mt-s-1_49 \
+ -l boost_filesystem-mgw48-mt-s-1_49 \
+ -l boost_program_options-mgw48-mt-s-1_49 \
+ -l boost_thread-mgw48-mt-s-1_49 \
  -l db_cxx \
  -l ssl \
  -l crypto
 
-DEFS=-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -DUSE_IPV6 -D__NO_SYSTEM_INCLUDES
+DEFS=-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -DBOOST_THREAD_PROVIDES_GENERIC_SHARED_MUTEX_ON_WIN -DUSE_IPV6 -D__NO_SYSTEM_INCLUDES -DUSE_UPNP=1 -DSTATICLIB -DUSE_QRCODE
 DEBUGFLAGS=-g
-CFLAGS=-mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
+CFLAGS=-mthreads -O2 -fomit-frame-pointer -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
 
@@ -55,24 +55,32 @@ OBJS= \
     obj/rpcnet.o \
     obj/rpcrawtransaction.o \
     obj/script.o \
-    obj/scrypt.o \
     obj/sync.o \
     obj/util.o \
     obj/wallet.o \
     obj/walletdb.o \
+    obj/neoscrypt.o \
+    obj/neoscrypt_asm.o \
     obj/noui.o
+
 
 
 all: ImperialCoin.exe
 
+obj/neoscrypt.o: neoscrypt.c
+	gcc -O2 -fomit-frame-pointer -DSHA256 -DBLAKE256 -c -o $@ $^
+
 obj/scrypt.o: scrypt.c
-	gcc -c $(CFLAGS) -o $@ $^
+	gcc -O2 -fomit-frame-pointer -c -o $@ $^
+
+obj/neoscrypt_asm.o: neoscrypt_asm.S
+	gcc -c -DASM -o $@ $^
 
 obj/%.o: %.cpp $(HEADERS)
 	g++ -c $(CFLAGS) -o $@ $<
 
 ImperialCoin.exe: $(OBJS:obj/%=obj/%)
-	g++ $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
+	g++ $(CFLAGS) -o $@ -static $(LIBPATHS) $^ $(LIBS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
 
@@ -80,7 +88,7 @@ obj-test/%.o: test/%.cpp $(HEADERS)
 	g++ -c $(TESTDEFS) $(CFLAGS) -o $@ $<
 
 test_ImperialCoin.exe: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
-	g++ $(CFLAGS) -o $@ $(LIBPATHS) $^ -lboost_unit_test_framework $(LIBS)
+	g++ $(CFLAGS) -o $@ -static $(LIBPATHS) $^ -lboost_unit_test_framework $(LIBS)
 
 clean:
 	-del /Q ImperialCoin test_ImperialCoin

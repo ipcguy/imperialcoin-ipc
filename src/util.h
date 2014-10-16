@@ -32,6 +32,9 @@ typedef int pid_t; /* define for windows compatiblity */
 
 typedef long long  int64;
 typedef unsigned long long  uint64;
+typedef unsigned int    uint;
+typedef unsigned short  ushort;
+typedef unsigned char   uchar;
 
 static const int64 COIN = 100000000;
 static const int64 CENT = 1000000;
@@ -116,9 +119,11 @@ extern bool fServer;
 extern bool fCommandLine;
 extern std::string strMiscWarning;
 extern bool fTestNet;
+extern bool fTestNetInit;
 extern bool fNoListen;
 extern bool fLogTimestamps;
 extern bool fReopenDebugLog;
+extern bool fNeoScrypt;
 
 void RandAddSeed();
 void RandAddSeedPerfmon();
@@ -484,7 +489,7 @@ inline uint160 Hash160(const std::vector<unsigned char>& vch)
 }
 
 
-/** Median filter over a stream of values. 
+/** Median filter over a stream of values.
  * Returns the median of the last N numbers
  */
 template <typename T> class CMedianFilter
@@ -501,7 +506,7 @@ public:
         vValues.push_back(initial_value);
         vSorted = vValues;
     }
-    
+
     void input(T value)
     {
         if(vValues.size() == nSize)

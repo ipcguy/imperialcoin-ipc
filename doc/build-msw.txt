@@ -8,7 +8,7 @@ cryptographic software written by Eric Young (eay@cryptsoft.com) and UPnP
 software written by Thomas Bernard.
 
 
-See readme-qt.rst for instructions on building Litecoin-QT, the
+See readme-qt.rst for instructions on building Imperialcoin-QT, the
 graphical user interface.
 
 WINDOWS BUILD NOTES
@@ -77,9 +77,9 @@ make -f Makefile.mingw
 mkdir miniupnpc
 cp *.h miniupnpc/
 
-Litecoin
+Imperialcoin
 -------
 DOS prompt:
-cd \litecoin\src
+cd \imperialcoin\src
 mingw32-make -f makefile.mingw
-strip litecoind.exe
+strip imperialcoind.exe

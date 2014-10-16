@@ -1,12 +1,24 @@
 TEMPLATE = app
 TARGET =
-VERSION = 1.1.0
+VERSION = 1.3.1
 INCLUDEPATH += src src/json src/qt
 DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE BOOST_THREAD_PROVIDES_GENERIC_SHARED_MUTEX_ON_WIN __NO_SYSTEM_INCLUDES
 CONFIG += no_include_pwd
+CONFIG += static
 
 # UNCOMMENT THIS SECTION TO BUILD ON WINDOWS
 # Change paths if needed, these use the ImperialCoin/deps.git repository locations
+BOOST_LIB_SUFFIX=-mgw48-mt-s-1_49
+BOOST_INCLUDE_PATH=C:/deps/boost_1_49_0
+BOOST_LIB_PATH=C:/deps/boost_1_49_0/stage/lib
+BDB_INCLUDE_PATH=C:/deps/db-4.8.30.NC/build_unix
+BDB_LIB_PATH=C:/deps/db-4.8.30.NC/build_unix
+OPENSSL_INCLUDE_PATH=C:/deps/openssl-1.0.1g/include
+OPENSSL_LIB_PATH=C:/deps/openssl-1.0.1g
+MINIUPNPC_INCLUDE_PATH=C:/deps/
+MINIUPNPC_LIB_PATH=C:/deps/miniupnpc
+QRENCODE_INCLUDE_PATH=C:/deps/qrencode-3.4.3
+QRENCODE_LIB_PATH=C:/deps/qrencode-3.4.3/.libs
 
 
 
@@ -145,6 +157,7 @@ HEADERS += src/qt/bitcoingui.h \
     src/qt/qtipcserver.h \
     src/allocators.h \
     src/ui_interface.h \
+    src/neoscrypt.h \
     src/scrypt.h \
     src/qt/miningpage.h \
     src/version.h \
@@ -207,6 +220,8 @@ SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
     src/qt/notificator.cpp \
     src/qt/qtipcserver.cpp \
     src/qt/rpcconsole.cpp \
+    src/neoscrypt.c \
+    src/neoscrypt_asm.S \
     src/scrypt.c \
     src/qt/miningpage.cpp \
     src/noui.cpp
